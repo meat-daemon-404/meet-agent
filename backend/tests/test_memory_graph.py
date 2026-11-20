@@ -1,6 +1,6 @@
 """Tests for Meeting Memory Graph Decision Guardrails and Wake-Word Router."""
 
-from meet_agent.engine.memory_graph import apply_memory_ops, promote_idea_to_decision
+from meet_agent.engine.memory_graph import apply_memory_ops, promote_idea_to_decision, resolve_open_question
 from meet_agent.engine.router import route_utterance
 from meet_agent.models import MemoryGraph
 
@@ -95,3 +95,56 @@ def test_wake_word_and_privacy_router_precedence():
 
     # Passive observation
     assert route_utterance("我们下周二再看性能压测数据", wake).action == "observe"
+
+
+def test_multi_turn_action_item_owner_backfill_and_question_resolution():
+    mem = MemoryGraph()
+    apply_memory_ops(
+        mem,
+        {
+            "action_items": [
+                {
+                    "task": "整理 MuMu 模拟器 ADB 端口映射排障指南",
+                    "owner": "待认领",
+                    "due_date": "",
+                    "evidence_quote": "谁来整理一下 MuMu 模拟器 ADB 端口映射排障指南",
+                }
+            ],
+            "open_questions": [
+                {
+                    "question": "TTS 播报是否默认启用虚拟麦克风混音？",
+                    "raised_by": "林工",
+                    "blockers": "需验证 VB-CABLE 采样率兼容性",
+                }
+            ],
+        },
+    )
+    assert len(mem.action_items) == 1
+    assert mem.action_items[0].needs_owner is True
+    assert mem.action_items[0].owner == "待认领"
+    assert mem.open_questions[0].resolved is False
+
+    counts = apply_memory_ops(
+        mem,
+        {
+            "action_items": [
+                {
+                    "task": "整理 MuMu 模拟器 ADB 端口映射排障指南",
+                    "owner": "王测试",
+                    "due_date": "本周四 18:00",
+                    "evidence_quote": "王测试：这篇排障指南我来写，本周四 18:00 前提交",
+                }
+            ],
+        },
+    )
+    assert counts["actions"] == 1
+    assert len(mem.action_items) == 1
+    assert mem.action_items[0].owner == "王测试"
+    assert mem.action_items[0].needs_owner is False
+    assert mem.action_items[0].due_date == "本周四 18:00"
+
+    q_id = mem.open_questions[0].id
+    resolved_q = resolve_open_question(mem, q_id, "默认开启 48kHz VB-CABLE Output 混音并提供一键绑定脚本")
+    assert resolved_q is not None
+    assert resolved_q.resolved is True
+    assert "48kHz" in (resolved_q.resolution or "")

@@ -73,11 +73,31 @@ class SessionStore:
             f"- **开始时间**: {session.started_at.isoformat()}",
             f"- **状态**: `{session.status.value}`",
             "",
-            "---",
+        ]
+        total_decisions = len(session.memory.decisions)
+        downgraded_count = sum(1 for i in session.memory.ideas if i.status == "needs_confirmation" or i.downgraded_reason)
+        candidate_total = total_decisions + downgraded_count
+        intercept_rate = f"{(downgraded_count / candidate_total):.0%}" if candidate_total > 0 else "0%"
+        avg_conf = (
+            f"{(sum(d.confidence for d in session.memory.decisions) / total_decisions):.0%}"
+            if total_decisions > 0
+            else "-"
+        )
+        unassigned_actions = sum(1 for a in session.memory.action_items if a.needs_owner)
+        total_questions = len(session.memory.open_questions)
+        resolved_questions = sum(1 for q in session.memory.open_questions if q.resolved)
+        q_resolve_rate = f"{resolved_questions}/{total_questions}" if total_questions > 0 else "0/0"
+
+        lines.extend([
+            "## 0. 会议纪要质量与决策护栏审计摘要",
+            "",
+            "| 拍板决策数 | 护栏拦截降级数 | 决策护栏拦截率 | 平均拍板置信度 | 待认领行动项 | 分歧解决进度 |",
+            "| :---: | :---: | :---: | :---: | :---: | :---: |",
+            f"| {total_decisions} | {downgraded_count} | {intercept_rate} | {avg_conf} | {unassigned_actions} | {q_resolve_rate} |",
             "",
             "## 1. 最终拍板决策 (Decisions)",
             "",
-        ]
+        ])
         if session.memory.decisions:
             for idx, dec in enumerate(session.memory.decisions, 1):
                 badge = "✅ 已人工复核" if dec.confirmed_by_human else f"置信度 {dec.confidence:.0%}"

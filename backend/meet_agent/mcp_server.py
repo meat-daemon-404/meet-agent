@@ -144,6 +144,12 @@ def create_embedded_mcp(orchestrator: MeetingOrchestrator) -> MCPServer:
         return json.dumps({"spoken": ok, "text": text}, ensure_ascii=False)
 
     @server.tool()
+    async def meeting_resolve_question(question_id: str, resolution: str) -> str:
+        """Mark an open question or disagreement as resolved with a concrete conclusion."""
+        ok = await orchestrator.resolve_question(question_id, resolution)
+        return json.dumps({"ok": ok, "question_id": question_id, "resolution": resolution}, ensure_ascii=False)
+
+    @server.tool()
     async def meeting_update_tile(visual_state: str, subtitle: str) -> str:
         """Update the Agent's virtual camera Live Status Tile (`listening`, `thinking`, `building_artifact`, `speaking`, `paused`)."""
         await orchestrator.update_tile_external(visual_state, subtitle)
@@ -260,6 +266,11 @@ def create_stdio_proxy_mcp(daemon_url: str) -> MCPServer:
     async def meeting_speak(text: str) -> str:
         """Speak text aloud via TTS + virtual microphone."""
         return await _req("POST", "/api/session/speak", {"text": text})
+
+    @server.tool()
+    async def meeting_resolve_question(question_id: str, resolution: str) -> str:
+        """Mark an open question or disagreement as resolved with a concrete conclusion."""
+        return await _req("PATCH", f"/api/session/questions/{question_id}", {"resolution": resolution})
 
     @server.tool()
     async def meeting_update_tile(visual_state: str, subtitle: str) -> str:

@@ -33,7 +33,7 @@ from ..providers.tts import create_tts_provider
 from ..store import SessionStore
 from ..video.status_tile import LiveStatusTileRenderer, TileState
 from .artifacts import upsert_artifact
-from .memory_graph import apply_memory_ops, promote_idea_to_decision
+from .memory_graph import apply_memory_ops, promote_idea_to_decision, resolve_open_question
 from .router import route_utterance
 
 
@@ -583,6 +583,16 @@ class MeetingOrchestrator:
             return False
         dec = promote_idea_to_decision(self.session.memory, idea_id, decided_by=decided_by)
         if not dec:
+            return False
+        self._persist_and_sync_tile()
+        await self.broadcast("memory_update", self.session.memory.model_dump(mode="json"))
+        return True
+
+    async def resolve_question(self, question_id: str, resolution: str) -> bool:
+        if not self.session:
+            return False
+        q = resolve_open_question(self.session.memory, question_id, resolution=resolution)
+        if not q:
             return False
         self._persist_and_sync_tile()
         await self.broadcast("memory_update", self.session.memory.model_dump(mode="json"))

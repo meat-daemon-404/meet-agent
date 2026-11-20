@@ -61,6 +61,10 @@ class PromoteIdeaPayload(BaseModel):
     decided_by: str = "人工复核"
 
 
+class ResolveQuestionPayload(BaseModel):
+    resolution: str
+
+
 class UpdateActionPayload(BaseModel):
     owner: str | None = None
     due_date: str | None = None
@@ -218,6 +222,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         ok = await orchestrator.promote_idea(idea_id, decided_by=decided_by)
         if not ok:
             raise HTTPException(status_code=404, detail="Idea not found")
+        return {"ok": True}
+
+    @app.patch("/api/session/questions/{question_id}")
+    async def patch_question(question_id: str, payload: ResolveQuestionPayload):
+        ok = await orchestrator.resolve_question(question_id, resolution=payload.resolution)
+        if not ok:
+            raise HTTPException(status_code=404, detail="Open question not found")
         return {"ok": True}
 
     @app.patch("/api/session/actions/{action_id}")
