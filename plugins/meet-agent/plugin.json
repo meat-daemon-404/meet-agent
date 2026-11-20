@@ -1,0 +1,9 @@
+{
+  "name": "meet-agent",
+  "version": "0.1.0",
+  "logo": "assets/logo.svg",
+  "description": "Connect Antigravity as a visible AI participant in Tencent Meeting with live transcript, decision guardrails, collaborative docs/whiteboards, virtual camera status tile, and TTS voice output.",
+  "author": {
+    "name": "MeetAgent Contributors"
+  }
+}

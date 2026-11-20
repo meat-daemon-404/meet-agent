@@ -1,0 +1,52 @@
+# Python & Environments
+**/__pycache__/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Node & Web Frontend
+node_modules/
+web/dist/
+web/.vite/
+*.tsbuildinfo
+
+# Secrets & Local Environments (CRITICAL)
+.env*
+!.env.example
+
+# Temporary media, dumps, drivers & recordings
+*.mp3
+*.wav
+*.png
+*.jpg
+*.jpeg
+*.xml
+*.zip
+*.log
+.drivers/
+temp_dump.xml
+uidump*.xml
+
+# Scratch / temporary scripts
+test_*.py
+!backend/tests/**
+download_*.py
+get_*.py
+find_*.py
+audit_*.py
+
+# Runtime Session Data & Artifacts
+data/
+*.db
+*.sqlite
+
+# OS generated files
+.DS_Store
+Thumbs.db
+desktop.ini

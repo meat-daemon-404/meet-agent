@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "meet-agent"
+version = "0.1.0"
+description = "Universal Meeting Presence & Body Runtime — connect Antigravity, OpenCode, Claude Code, Codex, and any ACP/MCP Agent as a visible participant in Tencent Meeting."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+authors = [
+  { name = "MeetAgent Contributors" }
+]
+dependencies = [
+  "fastapi>=0.115.0",
+  "uvicorn[standard]>=0.32.0",
+  "pydantic>=2.9.0",
+  "pydantic-settings>=2.6.0",
+  "httpx>=0.27.0",
+  "websockets>=13.0",
+  "pillow>=10.4.0",
+  "numpy>=2.0.0",
+  "miniaudio>=1.70.0",
+  "edge-tts>=6.1.12",
+  "mss>=9.0.1",
+  "mcp>=1.2.0",
+]
+
+[project.optional-dependencies]
+windows = [
+  "PyAudioWPatch>=0.2.12.6",
+  "pyvirtualcam>=0.12.0",
+  "uiautomation>=2.0.20",
+]
+asr-local = [
+  "faster-whisper>=1.0.3",
+]
+dev = [
+  "pytest>=8.3.0",
+  "pytest-asyncio>=0.24.0",
+  "httpx>=0.27.0",
+]
+
+[project.scripts]
+meet-agent = "meet_agent.cli:main"
+meet-agent-mcp = "meet_agent.mcp_server:run_stdio"
+
+[tool.setuptools.packages.find]
+where = ["backend"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["backend/tests"]
+pythonpath = ["backend"]
