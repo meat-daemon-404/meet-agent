@@ -1,75 +1,52 @@
-# MeetAgent — Universal Meeting Presence & Body Runtime
+# Meet-Agent (`meet-agent` v0.2.0)
 
-> **Give Antigravity, OpenCode, Claude Code, Codex, and any ACP / MCP Agent a real body inside Tencent Meeting.**
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://github.com/meat-daemon-404/meet-agent)
+[![Tests](https://img.shields.io/badge/Pytest-47%2F47_Passing-2ea44f)](https://github.com/meat-daemon-404/meet-agent/tree/main/tests)
 
-MeetAgent is a **local-first, open-source** meeting presence runtime inspired by Anthropic's Claude Meetings—re-architected around an **Agent-First Dual-Bridge** model so your existing coding & general-purpose agents can join **Tencent Meeting** as **visible participants** with full access to your local workspace, codebase, and MCP ecosystem.
+[English](README.md) | [简体中文](README.zh-CN.md)
 
-```mermaid
-flowchart LR
-    TM["Tencent Meeting Desktop\n(WeMeetApp / Linux wemeet)"] <--> Body["MeetAgent Body Adapter\nWASAPI/VB-Cable · pyvirtualcam · UIA · mss"]
-    Body <--> Core["MeetAgent Core Daemon\nDecision Guardrail · Artifacts · HITL · WS"]
-    Core <--> BrainA["Mode A: Brain Bridge\nagy stream-json · agy acp · opencode acp · CLI"]
-    Core <--> BrainB["Mode B: Native Plugin & MCP\nplugins/meet-agent · Streamable HTTP /mcp · stdio"]
-    Core <--> UI["Live Collaborative Workspace\nTranscript · 4-State Decision Board · Mermaid Whiteboard"]
-```
+> **Universal Meeting Presence & Embodied Runtime for Tencent Meeting** — Join or shadow live meetings via Windows desktop client or MuMu Android emulator audio/vision bindings, build an incremental in-meeting **Memory Graph** (claims, decisions, action items, open questions, contradictions), trigger proactive turn-taking interventions, and export audit-ready Markdown recaps and MCP tools.
 
-## Key Features
+## Key Capabilities (v0.2.0)
 
-- **Native Agent Integration (No Redundant LLM Wrapper)**
-  - **Mode A (Brain Bridge)**: Automatically discovers local Agent CLIs (`agy`, `opencode`, `claude`, `codex`, `gemini`). Drives persistent multi-turn **`agy --input-format stream-json --output-format stream-json`** and universal **ACP (`agy acp` / `opencode acp`)** sessions with workspace mounting (`--add-dir`) and interactive HITL permission approval (`session/request_permission`).
-  - **Mode B (Native Antigravity Plugin + MCP Server)**: Ships a strict-validated Antigravity plugin ([`plugins/meet-agent/`](./plugins/meet-agent/)) and a dual-mode MCP Server (`http://127.0.0.1:8765/mcp` Streamable HTTP + `meet-agent-mcp` stdio) so you can tell your active Antigravity / Claude Code / Cursor session: *"Join Tencent Meeting 888-999-000 and track our technical decisions."*
-- **Pluggable Meeting Body (`MeetingAdapter`)**
-  - **`tencent-desktop`**: Launches `WeMeetApp.exe` via `wemeet://page/inmeeting?meeting_code=...`, supports zero-install listening via **WASAPI Loopback** (`PyAudioWPatch`), optional **VB-Cable** isolated bidirectional audio, **Edge-TTS** voice output with `EchoMuteGate`, **1280×720 Live Status Tile** via `pyvirtualcam` (OBS Virtual Camera / Unity Capture), screen diff capture via `mss`, and Windows UI Automation chat/speaker helpers.
-  - **`simulator`**: Built-in realistic Chinese technical review meeting simulator for instant end-to-end testing without an active call.
-  - **`voov-web`**: Phase 2 Playwright extension point targeting `https://voovmeeting.com/r`.
-- **Decision Guardrail (Solving the #1 Meeting AI Failure)**
-  - Explicitly separates `Ideas`, `Open Questions`, `Decisions`, and `Action Items`.
-  - Any proposed `Decision` lacking verbatim `evidence_quote`, explicit `decided_by`, or `confidence >= 0.75` is **automatically downgraded** to `Idea (needs_confirmation)` so brainstorming remarks are never misrecorded as final conclusions.
-  - Unassigned action items are highlighted as `⚠️ 待认领` for one-click owner assignment.
-- **Live Collaborative Workspace & Privacy Guardrails**
-  - Real-time collaborative Markdown docs and live-rendered **Mermaid** architecture whiteboards.
-  - Always joins as a visible participant, posts a transparency notice in chat, supports instant spoken/chat `"暂停记录"` / `"退出会议"`, and **never persists raw audio by default**.
+1. **Incremental Meeting Memory Graph (`src/meet_agent/memory_graph.py`)**
+   - Tracks speakers, claims, decisions, action items, open questions, and factual contradictions in real time.
+   - **Multi-Turn Action-Item Owner & Due-Date Backfill**: Automatically resolves pending `needs_owner` action items when a speaker volunteers ownership (`我来负责` / `交给我` / `I'll take that`) or specifies a deadline in a subsequent turn, clearing `needs_owner` once assigned.
+   - **Open Question Resolution Loop**: Supports deterministic resolution via `resolve_open_question(question_id, resolution)` across REST (`PATCH /api/session/questions/{question_id}`) and MCP (`meeting_resolve_question`).
+2. **Audit-Ready Markdown Recap Exporter**
+   - Generates structured post-meeting Markdown minutes featuring an **Executive Summary Audit Metrics Table** (total utterances, speaker count, decisions, assigned vs. unassigned `needs_owner` action items, open vs. resolved questions, and flagged contradictions).
+3. **Dual-Runtime Presence & Audio Routing**
+   - Supports Windows WASAPI loopback / virtual cable (`scripts/auto_bind_mumu_audio.py`, reading `MEET_AGENT_INPUT_DEVICE` and `MEET_AGENT_OUTPUT_DEVICE` directly from `.env`), ASR streaming, TTS voice synthesis, and MCP Server integration (`src/meet_agent/mcp_server.py`).
 
 ## Quick Start
 
-### 1. Backend Daemon & Environment Check
-
 ```bash
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e ".[windows,dev]"
+git clone https://github.com/meat-daemon-404/meet-agent.git
+cd meet-agent
+python -m pip install -e ".[dev]"
 
-# Inspect local Tencent Meeting, audio/video devices, and installed Agent CLIs
-.\.venv\Scripts\meet-agent.exe doctor
+# Auto-detect and bind MuMu / virtual audio devices into .env
+python scripts/auto_bind_mumu_audio.py
 
-# Start MeetAgent Daemon (HTTP + WebSocket + Streamable HTTP MCP at /mcp)
-.\.venv\Scripts\meet-agent.exe serve
+# Start the FastAPI + WebSocket meeting console
+python -m meet_agent.server --host 127.0.0.1 --port 8765
+
+# Run the full 47-test verification suite
+pytest -q
 ```
 
-### 2. Live Collaborative Workspace (Dev Mode)
+## REST & MCP Interfaces
 
-```bash
-cd web
-pnpm install
-pnpm dev
-# Open http://127.0.0.1:5173
-```
-
-*(If you run `pnpm build` inside `web/`, `meet-agent serve` serves the compiled web UI directly on `http://127.0.0.1:8765`.)*
-
-### 3. Install as an Antigravity Native Plugin
-
-```bash
-agy plugin validate ./plugins/meet-agent --strict
-agy plugin install ./plugins/meet-agent
-```
-
-## Documentation
-
-- [中文说明 (README.zh-CN.md)](./README.zh-CN.md)
-- [Architecture Overview](./docs/architecture.md)
-- [Antigravity / OpenCode / Claude Code / Cursor Integration Guide](./docs/agent-integration.md)
-- [Virtual Audio (VB-Cable / PulseAudio) & Virtual Camera (OBS) Setup](./docs/virtual-devices-guide.md)
+| Interface | Endpoint / Tool | Purpose |
+| :--- | :--- | :--- |
+| **REST API** | `POST /api/session/ingest` | Ingest a live transcript segment into the Memory Graph |
+| **REST API** | `GET /api/session/state` | Inspect current claims, decisions, action items, and open questions |
+| **REST API** | `PATCH /api/session/questions/{question_id}` | Mark an open question as resolved with a verified answer |
+| **REST API** | `GET /api/session/export/markdown` | Export full Markdown minutes with Executive Summary metrics table |
+| **MCP Tool** | `meeting_get_summary` / `meeting_list_actions` | Query live meeting state from Claude Code / Cursor / DSH |
+| **MCP Tool** | `meeting_resolve_question` | Resolve an open question in the active meeting graph |
 
 ## License
 
-MIT
+Released under the [MIT License](LICENSE).

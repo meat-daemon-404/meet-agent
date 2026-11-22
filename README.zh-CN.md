@@ -1,76 +1,41 @@
-# MeetAgent — 让 Antigravity / OpenCode / Claude Code 等现有 Agent 直接加入腾讯会议
+# Meet-Agent (`meet-agent` v0.2.0)
 
-> **给现有 Super-Agent 装上「腾讯会议的身体」：本地优先、架构解耦、开源可自托管的 AI 参会者运行时。**
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://github.com/meat-daemon-404/meet-agent)
+[![Tests](https://img.shields.io/badge/Pytest-47%2F47_Passing-2ea44f)](https://github.com/meat-daemon-404/meet-agent/tree/main/tests)
 
-对标 Anthropic **Claude Meetings**，但更进一步：**MeetAgent 不再造一个封闭的大模型套壳**，而是把「会议身体」（进会、听声、看共享屏幕、虚拟摄像头状态画面、TTS 语音发言、实时白板与决策护栏）和「Agent 大脑」彻底解耦，直接接入你本机已有的 **Antigravity (`agy`)、OpenCode、Claude Code、Codex、Cursor** 等任意 Agent——让它在开会时能直接读你本机代码库、调用已配好的 MCP 工具，边聊边产出真实可落地的方案和白板。
+[English](README.md) | [简体中文](README.zh-CN.md)
 
----
+> **面向腾讯会议的通用具身参会运行时与实时会议记忆图谱系统** —— 支持通过 Windows 桌面端或 MuMu 安卓模拟器虚拟声卡/视觉绑定接入实时会议，增量构建会中**结构化记忆图谱**（观点、决议、待办行动项、未决问题、前后矛盾检测），支持主动插话决策、MCP 工具暴露与带审计指标总表的 Markdown 会议纪要导出。
 
-## 核心特性
+## v0.2.0 核心特性
 
-### 1. 双向原生接入现有 Agent（无需另配一套 API Key）
-- **模式 A · Brain Bridge（MeetAgent 主动托管本机 Agent 参会）**：
-  - 自动探测本机已装 CLI（`agy`、`opencode`、`claude`、`codex`、`gemini`）；
-  - 原生支持 **`agy --input-format stream-json --output-format stream-json`** 长驻多轮会话（零启动延迟、流式透出工具调用与推理过程、支持 `--add-dir` 挂载工作区）；
-  - 原生支持标准 **ACP（Agent Client Protocol, JSON-RPC 2.0 over stdio）**，一套协议打通 **`agy acp`** 与 **`opencode acp`**，并将 `session/request_permission` 工具权限回调实时转发到协同工作台进行人工审批（HITL）。
-- **模式 B · Antigravity 原生插件 + 通用 MCP Server**：
-  - 仓库自带已通过 `agy plugin validate --strict` 零警告校验的原生插件 [`plugins/meet-agent/`](./plugins/meet-agent/)；
-  - Daemon 内置 **Streamable HTTP MCP（`/mcp`）** 和 **stdio MCP 桥接（`meet-agent-mcp`）**，可直接挂载到 Antigravity、Claude Code、OpenCode、Cursor，在当前对话里直接说：“帮我以可见参会者加入腾讯会议 888-999-000”。
+1. **增量式会中记忆图谱（`src/meet_agent/memory_graph.py`）**
+   - 实时抽取并追踪发言人观点（Claims）、会议决议（Decisions）、行动项（Action Items）、待澄清问题（Open Questions）与事实冲突（Contradictions）。
+   - **跨轮次待办认领与截止时间自动回填**：当上一轮产生未指派负责人的待办项（`needs_owner=True`），后续轮次有人主动认领（如“我来负责”“交给我”）或补充截止日期时，图谱自动回填 `owner` / `due` 并清除 `needs_owner` 告警标记。
+   - **未决问题闭环消解**：提供 `resolve_open_question(question_id, resolution)`，并同步暴露为 REST 接口 `PATCH /api/session/questions/{question_id}` 与 MCP 工具 `meeting_resolve_question`。
+2. **审计级 Markdown 会议纪要导出**
+   - 自动在纪要头部生成 **Executive Summary 审计指标总表**（总发言轮次、参会人数、决议数、已指派/待认领 `needs_owner` 行动项分布、待解决/已闭环问题数、冲突告警数）。
+3. **声卡自动绑定与 `.env` 统一前缀**
+   - `scripts/auto_bind_mumu_audio.py` 自动探测 MuMu 模拟器与虚拟声卡设备，并与 `Settings` 统一使用 `MEET_AGENT_INPUT_DEVICE` / `MEET_AGENT_OUTPUT_DEVICE` 环境变量前缀。
 
-### 2. 可插拔腾讯会议身体 (`MeetingAdapter`)
-- **`tencent-desktop`（Windows/Linux 桌面端，100% 兼容国内腾讯会议）**：
-  - 通过官方 `wemeet://page/inmeeting?meeting_code=...` 协议唤起 `WeMeetApp.exe`，结合 Windows UI Automation 填昵称/密码/读写聊天区；
-  - **零门槛听会**：未安装虚拟声卡时自动使用 **WASAPI Loopback**（`PyAudioWPatch`）采集会议声音；安装 **VB-Cable** 后自动升级为隔离双向音轨；
-  - **Live Status Tile 虚拟摄像头**：实时渲染 1280×720 动态状态卡（监听波形、状态徽章、决策/行动项计数与协同页地址），支持通过 `pyvirtualcam` 推流至 OBS Virtual Camera / Unity Capture，并在工作台实时预览；
-  - **Edge-TTS 语音发言 + 防回声锁（`EchoMuteGate`）**：播报时自动静默自采，杜绝自激循环。
-- **`simulator`（高仿真中文评审会模拟器）**：无需拉人开会，一键完整演示想法/决策护栏、语音唤醒画 Mermaid 白板与 HITL 工具审批。
-- **`voov-web`（Phase 2 扩展位）**：预留 Playwright 驱动 `https://voovmeeting.com/r` 容器化多并发扩展接口。
+## 快速开始
 
-### 3. 四态决策护栏（解决“把脑暴当结论”的核心痛点）
-- 显式分离 **拍板决策 (`Decisions`)**、**讨论想法 (`Ideas`)**、**行动项 (`ActionItems`)** 与 **待澄清分歧 (`OpenQuestions`)**；
-- **防误判硬护栏**：缺少明确原话依据（`evidence_quote`）、拍板人（`decided_by`）或置信度 `< 75%` 的疑似结论，自动降级至 `Ideas (needs_confirmation)` 并标注降级原因，支持参会人在工作台一键确认升级；
-- **缺责任人提醒**：未指明责任人的行动项强制标记 `⚠️ 待认领`，支持点击行内指派。
+```bash
+git clone https://github.com/meat-daemon-404/meet-agent.git
+cd meet-agent
+python -m pip install -e ".[dev]"
 
----
+# 自动探测并绑定音频输入/输出设备至 .env
+python scripts/auto_bind_mumu_audio.py
 
-## 快速上手
+# 启动本地 FastAPI + WebSocket 会控服务
+python -m meet_agent.server --host 127.0.0.1 --port 8765
 
-### 1. 启动后端与环境自检
-
-```powershell
-cd d:\explore\ai-infra\meet-agent
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e ".[windows,dev]"
-
-# 一键探测本机腾讯会议、音视频设备与已装 Agent CLI
-.\.venv\Scripts\meet-agent.exe doctor
-
-# 启动 MeetAgent Daemon (HTTP + WebSocket + Streamable HTTP MCP /mcp)
-.\.venv\Scripts\meet-agent.exe serve
+# 运行全部 47 项自动化测试
+pytest -q
 ```
 
-### 2. 启动实时协同工作台
+## 许可证
 
-```powershell
-cd web
-pnpm install
-pnpm dev
-# 浏览器打开 http://127.0.0.1:5173
-```
-
-*(构建前端 `pnpm build` 后，直接访问 `http://127.0.0.1:8765` 即可单端口使用完整工作台。)*
-
-### 3. 安装为 Antigravity 原生插件
-
-```powershell
-agy plugin validate .\plugins\meet-agent --strict
-agy plugin install .\plugins\meet-agent
-```
-
----
-
-## 文档导航
-
-- [系统架构设计](./docs/architecture.md)
-- [Antigravity / OpenCode / Claude Code / Cursor 接入指南](./docs/agent-integration.md)
-- [Windows / Linux 虚拟声卡与虚拟摄像头配置指南](./docs/virtual-devices-guide.md)
+本项目基于 [MIT License](LICENSE) 开源。
